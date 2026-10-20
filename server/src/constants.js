@@ -31,3 +31,6 @@ export const PUBLIC_FIELDS = {
 
 // Campus timezone for date rule DR-1 (Section 5.3, CS-11)
 export const CAMPUS_TIMEZONE = 'Asia/Karachi';
+
+// Phone number regex pattern per Section 5.2 (7-20 chars, digits, +, (), -, spaces)
+export const PHONE_REGEX = /^[0-9+()\-\s]{7,20}$/;

@@ -16,9 +16,11 @@ Status Key:
 - [x] **Phase 2: Initial Setup and Walking-Skeleton Deployment**
   - Completed on 20 Oct 2026.
   - Directory structure, `.gitignore`, docs, minimal Express server, minimal React client, health endpoint, and CORS allow-list verified.
-- [ ] **Phase 3: Database Connection, Models and Seed Data**
-  - Planned: `db.js`, `env.js`, Mongoose models (`LostItem`, `FoundItem`, `ClaimRequest`), indexes, and seed script.
+- [x] **Phase 3: Database Connection, Models and Seed Data**
+  - Completed on 20 Oct 2026.
+  - `db.js` connection module, 3 Mongoose models (`LostItem`, `FoundItem`, `ClaimRequest`), indexes, validation suite, and repeatable seed script established.
 - [ ] **Phase 4: Staff Authentication and Security Middleware**
+  - Planned: `hashPassword.js`, `POST /api/auth/login`, `optionalAuth` / `requireAuth`, login rate limiting, helmet, and Zod validate middleware.
 - [ ] **Phase 5: Backend CRUD APIs and Claim Workflow**
   - [ ] Gate 5A: LostItem CRUD
   - [ ] Gate 5B: FoundItem CRUD
@@ -34,19 +36,15 @@ Status Key:
 
 ---
 
-## Phase 2 Completed Verification
+## Phase 3 Completed Verification
 
-- [x] Initialized Git repository (`main` branch)
-- [x] Created root `.gitignore` covering `node_modules/`, `dist/`, `.env*` (except `.env.example`), `logs/`
-- [x] Created `docs/ANTIGRAVITY_RULES.md`
-- [x] Created `docs/PROGRESS.md`
-- [x] Created `docs/test-log.md`
-- [x] Created `server/` skeleton with `GET /api/health`
-- [x] Created `client/` skeleton with Vite + React + Tailwind + Axios client
-- [x] Created `client/public/_redirects` for SPA static hosting routing fallback
-- [x] Verified local communication: `GET /api/health` returns 200 OK with server status and uptime
-- [x] Verified CORS behavior: Allowed origin receives `Access-Control-Allow-Origin: http://localhost:5173`; disallowed origin blocked with 403 Forbidden (`SEC-08`)
-- [x] Verified 404 handler: Unmatched route returns 404 with standardized JSON envelope (`API-01`)
-- [x] Verified startup guard: Server startup aborts with exit code 1 if `FAIL_WRITE` is present when `NODE_ENV !== 'test'` (`GUARD-01`)
-- [x] Verified client production build: Vite compiled with zero errors (`BUILD-01`)
-- [x] Verified Git hygiene: No secrets or `.env` files tracked
+- [x] Database configuration (`server/src/config/db.js`) with fail-fast validation and connection monitoring.
+- [x] Server entry point (`server/src/server.js`) updated to connect to database before listening and disconnect gracefully on shutdown.
+- [x] Single source of truth constants (`server/src/constants.js`) updated with `PHONE_REGEX` and all system enums.
+- [x] `LostItem` Mongoose model (`server/src/models/LostItem.js`) per Section 5.2 and 5.9 with compound index `{ createdAt: -1, category: 1, status: 1 }`.
+- [x] `FoundItem` Mongoose model (`server/src/models/FoundItem.js`) per Section 5.4 and 5.9 with compound index `{ createdAt: -1, category: 1, status: 1 }`.
+- [x] `ClaimRequest` Mongoose model (`server/src/models/ClaimRequest.js`) per Section 5.5 and 5.9 with compound indexes `{ foundItem: 1, status: 1 }` and `{ foundItem: 1, claimantEmail: 1 }`, immutable reference, and conditional `adminNote` validation on rejection.
+- [x] Model validation test suite (`server/src/scripts/testModels.js`) verifying 15 schema rules across all 3 models with 100% pass rate (`MOD-01`, `MOD-02`, `MOD-03`).
+- [x] Seed script (`server/src/scripts/seed.js`) populating realistic test fixtures across all statuses (open/resolved lost items; available/claimed/returned found items; pending/approved/completed claims; available item with 2 pending claims for workflow testing) and satisfying invariants INV-1, INV-2, INV-3 (`SEED-01`).
+- [x] Added `seed` and `test:models` scripts to `server/package.json`.
+- [x] Updated `docs/test-log.md` with Phase 3 test cases.
