@@ -5,8 +5,12 @@ import { env } from './config/env.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { AppError } from './utils/AppError.js';
+import authRoutes from './routes/auth.routes.js';
 
 const app = express();
+
+// Trust reverse proxy for client IP detection (Section 8.1, 10.2)
+app.set('trust proxy', 1);
 
 // Security headers
 app.use(helmet());
@@ -45,6 +49,9 @@ app.get('/api/health', (req, res) => {
     }
   });
 });
+
+// Authentication routes (Section 6.1)
+app.use('/api/auth', authRoutes);
 
 // 404 handler for unmatched routes
 app.use(notFound);

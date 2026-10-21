@@ -14,5 +14,10 @@ This log records test executions, dates, results, and evidence filenames for pro
 | **MOD-02** | FoundItem schema validation | Models | 2026-10-20 | **PASS** | Passed 3 validation checks: valid pass, required storageLocation, status enum |
 | **MOD-03** | ClaimRequest schema validation | Models | 2026-10-20 | **PASS** | Passed 4 validation checks: valid pending, proof description length, required conditional adminNote on rejection |
 | **SEED-01** | Seed fail-fast on missing URI | Scripts | 2026-10-20 | **PASS** | `node src/scripts/seed.js` exits cleanly with code 1 if `MONGODB_URI` is not set |
+| **AUTH-01** | Valid staff login generates JWT | Auth API | 2026-10-21 | **PASS** | `POST /api/auth/login` with valid credentials returns 200 OK with signed JWT token and `expiresIn: '1h'` |
+| **SEC-01** | Staff endpoint guard without token | Auth API | 2026-10-21 | **PASS** | `GET /api/auth/verify-staff` without token returns 401 Unauthorized `{ success: false, message: 'Authentication required. No token provided.' }` |
+| **SEC-02** | Malformed, tampered & expired tokens | Auth API | 2026-10-21 | **PASS** | Verified on staff and Public+ routes; malformed, tampered, and expired tokens return 401 `{ success: false, message: 'Invalid or expired authentication token' }` |
+| **SEC-03** | Generic 401 for wrong credentials | Auth API | 2026-10-21 | **PASS** | `POST /api/auth/login` with wrong username and wrong password both return identical 401 `{ success: false, message: 'Invalid credentials' }` |
+| **SEC-04** | Login rate limit after repeated failures | Auth API | 2026-10-21 | **PASS** | Repeated failed login attempts trigger 429 Too Many Requests `{ success: false, message: 'Too many login attempts. Please try again after 15 minutes.' }` |
 | **DEP-01** | Live site loads without error | System | — | Pending | Scheduled for Phase 10 |
 | **DEP-03** | Deep link loads on static host | Frontend | — | Pending | `public/_redirects` configured; verified in Phase 10 |
