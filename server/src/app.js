@@ -6,6 +6,10 @@ import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { AppError } from './utils/AppError.js';
 import authRoutes from './routes/auth.routes.js';
+import lostItemRoutes from './routes/lostItem.routes.js';
+import foundItemRoutes from './routes/foundItem.routes.js';
+import claimRoutes from './routes/claim.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
 
 const app = express();
 
@@ -50,8 +54,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Authentication routes (Section 6.1)
+// Routes (Section 6.1)
 app.use('/api/auth', authRoutes);
+app.use('/api/lost-items', lostItemRoutes);
+app.use('/api/found-items', foundItemRoutes);
+app.use('/api/claims', claimRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // 404 handler for unmatched routes
 app.use(notFound);

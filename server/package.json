@@ -10,7 +10,10 @@
     "seed": "node src/scripts/seed.js",
     "test:models": "node src/scripts/testModels.js",
     "hash-password": "node src/scripts/hashPassword.js",
-    "test:auth": "node src/scripts/testAuth.js"
+    "test:auth": "node src/scripts/testAuth.js",
+    "test:lost": "node src/scripts/testLostItems.js",
+    "test:found": "node src/scripts/testFoundItems.js",
+    "test:claims": "node src/scripts/testClaims.js"
   },
   "keywords": [
     "lost-and-found",
