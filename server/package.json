@@ -13,7 +13,11 @@
     "test:auth": "node src/scripts/testAuth.js",
     "test:lost": "node src/scripts/testLostItems.js",
     "test:found": "node src/scripts/testFoundItems.js",
-    "test:claims": "node src/scripts/testClaims.js"
+    "test:claims": "node src/scripts/testClaims.js",
+    "test:lifecycle": "node src/scripts/testLifecycle.js",
+    "test:live-db": "node src/scripts/testLiveDb.js",
+    "test:api": "node src/scripts/runAllTests.js",
+    "test": "node src/scripts/runAllTests.js"
   },
   "keywords": [
     "lost-and-found",

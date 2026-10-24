@@ -26,7 +26,9 @@ Status Key:
   - [x] Gate 5A: LostItem CRUD (Zod schemas including DR-1, 5 endpoints, public vs staff projection, list query)
   - [x] Gate 5B: FoundItem CRUD (Zod schemas including DR-1, 5 endpoints, edit/delete protections, status immutability)
   - [x] Gate 5C: ClaimRequest Workflow & Test Failure Switch (two-write recovery, consistency invariants, test-only switch & TD-1 to TD-6 isolation)
-- [ ] **Phase 6: API Testing**
+- [x] **Phase 6: API Testing**
+  - Completed on 24 Oct 2026.
+  - Unified automated test runner (`npm test`), 27-assertion lifecycle integration suite (`testLifecycle.js`), isolated live MongoDB test harness (`testLiveDb.js`), and full regression verified (229 assertions passed in-memory; live MongoDB skipped as unconfigured).
 - [ ] **Phase 7: Frontend Structure and Reusable Components**
 - [ ] **Phase 8: Frontend-Backend Integration of Modules**
   - [ ] Gate 8A: Public Flows
@@ -130,6 +132,36 @@ Status Key:
 - [x] Added `test:claims` script to `server/package.json`.
 - [x] Verified full regression suite passes cleanly (`test:models`: 15/15, `test:auth`: 25/25, `test:lost`: 50/50, `test:found`: 62/62, `test:claims`: 50/50).
 - [x] Updated `docs/test-log.md` with CLM-01 to CLM-08, INV-1 to INV-3, CLM-07, and DASH-01 entries.
+
+---
+
+## Phase 6: API Testing Completed Verification
+
+- [x] Created `server/src/scripts/testLifecycle.js` containing 27 explicit assertions covering the complete cross-module integration lifecycle:
+  - LostItem: create response privacy (Section 6.5), staff detail projection, public detail projection, staff status toggle (`open` &rarr; `resolved`).
+  - FoundItem: create response privacy, staff detail projection, public detail projection.
+  - Claims: duplicate active claim rejection (HTTP 409 Conflict), distinct claimant multi-claim submission.
+  - Invariant INV-1: Claim approval transitions FoundItem to `claimed`; second approval on `claimed` item blocked with 400.
+  - Rejection Note: Rejection without `adminNote` returns 400; note < 5 chars returns 400; valid note &ge; 5 chars returns 200.
+  - Deletion Protection: Deleting FoundItem with claim history returns 409 Conflict with `claimCount`.
+  - Invariant INV-2: Claim completion transitions FoundItem to `returned`; editing `returned` item returns 400; deleting `completed` claim returns 400.
+  - Invariant INV-3: Rejecting an approved claim reverts FoundItem to `available`; deleting an approved claim reverts FoundItem to `available`.
+  - Two-Write Recovery: `FAIL_WRITE` secondary failure triggers compensating transaction restoring claim to `pending`, leaving FoundItem `available`, and returning HTTP 500 `{ recovered: true }`.
+  - Dashboard Summary: `GET /api/dashboard` accurately reflects aggregate counts for Lost, Found, and Claim records.
+- [x] Created `server/src/scripts/testLiveDb.js` providing real MongoDB integration testing with safety guards:
+  - Graceful Skip mode when `MONGODB_URI_TEST` is unset in environment.
+  - URI parser extracting database name safely without printing credentials or connection URIs.
+  - Strict enforcement: `NODE_ENV === 'test'`, `dbName === 'foundit_test'`, `MONGODB_URI_TEST !== MONGODB_URI`, post-connect `conn.name === 'foundit_test'`.
+  - Surgical cleanup: tracks inserted `_id`s in memory arrays and executes `deleteMany({ _id: { $in: createdIds } })`. Never drops databases or collections.
+- [x] Created `server/src/scripts/runAllTests.js` as unified child-process test orchestrator:
+  - Executes each suite in isolated child process with `NODE_ENV=test`.
+  - Captures child process exit codes; non-zero exit code marks suite `FAIL` and propagates non-zero exit to parent.
+  - Parses dynamic assertion metrics from structured output without hardcoding totals.
+  - Strictly distinguishes Part A (In-Memory Suites) from Part B (Real MongoDB Integration).
+- [x] Updated `server/package.json` with scripts: `"test"`, `"test:api"`, `"test:lifecycle"`, and `"test:live-db"`.
+- [x] Verified automated runner: 7 suites executed (6 passed in-memory with 229 passing assertions, 1 skipped live DB, 0 failures, exit code 0).
+- [x] Updated `docs/test-log.md` with RUN-01, LC-01..27, and LIVE-01 entries.
+
 
 
 
