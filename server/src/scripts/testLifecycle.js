@@ -31,6 +31,12 @@ async function runLifecycleTests() {
   const staffToken = jwt.sign({ username: 'admin', role: 'staff' }, env.JWT_SECRET, {
     expiresIn: env.JWT_EXPIRES_IN
   });
+  const studentToken = jwt.sign(
+    { id: new mongoose.Types.ObjectId().toString(), email: 'student@campus.fake', role: 'student' },
+    env.JWT_SECRET,
+    { expiresIn: env.JWT_EXPIRES_IN }
+  );
+
 
   // Ephemeral test HTTP server
   const server = http.createServer(app);
@@ -310,10 +316,10 @@ async function runLifecycleTests() {
       reporterPhone: '+92 300 1234567'
     };
 
-    // LC-01: Public reporter creates Lost Item
+    // LC-01: Authenticated student creates Lost Item
     const resLostCreate = await fetch(lostUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify(validLostData)
     });
     const rawLostText = await resLostCreate.text();
@@ -389,7 +395,7 @@ async function runLifecycleTests() {
     // LC-06: Finder creates Found Item
     const resFoundCreate = await fetch(foundUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         title: 'Casio Scientific Calculator FX-991EX',
         category: 'Electronics',
@@ -458,8 +464,9 @@ async function runLifecycleTests() {
     // LC-10: Claimant A submits first claim
     const resClaim1 = await fetch(claimsUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
+
         foundItem: foundId,
         claimantName: 'Dave Miller',
         claimantEmail: 'dave.miller@campus.edu',
@@ -477,7 +484,7 @@ async function runLifecycleTests() {
     // LC-11: Claimant A submits duplicate claim while first is pending
     const resClaimDup = await fetch(claimsUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         foundItem: foundId,
         claimantName: 'Dave Miller',
@@ -495,7 +502,7 @@ async function runLifecycleTests() {
     // LC-12: Claimant B submits claim on same available item
     const resClaim2 = await fetch(claimsUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         foundItem: foundId,
         claimantName: 'Eve Wilson',
@@ -678,7 +685,7 @@ async function runLifecycleTests() {
     // Setup item 2 & claim 3 for reject reversion (use valid category 'Book')
     const resItemInv3A = await fetch(foundUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         title: 'Green Notebook Binder',
         category: 'Book',
@@ -695,7 +702,7 @@ async function runLifecycleTests() {
 
     const resClaimInv3A = await fetch(claimsUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         foundItem: itemInv3AId,
         claimantName: 'Grace Lee',
@@ -731,7 +738,7 @@ async function runLifecycleTests() {
     // Setup item 3 & claim 4 for delete reversion
     const resItemInv3B = await fetch(foundUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         title: 'USB Flash Drive 64GB',
         category: 'Electronics',
@@ -748,7 +755,7 @@ async function runLifecycleTests() {
 
     const resClaimInv3B = await fetch(claimsUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         foundItem: itemInv3BId,
         claimantName: 'Ian Clark',
@@ -785,7 +792,7 @@ async function runLifecycleTests() {
     // Create item & claim for failure simulation
     const resItemFail = await fetch(foundUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         title: 'Leather Wallet Brown',
         category: 'Wallet',
@@ -802,7 +809,7 @@ async function runLifecycleTests() {
 
     const resClaimFail = await fetch(claimsUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         foundItem: itemFailId,
         claimantName: 'Karen Moore',

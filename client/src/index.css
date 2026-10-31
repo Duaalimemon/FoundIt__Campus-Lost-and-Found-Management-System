@@ -7,9 +7,20 @@
   color-scheme: light;
 }
 
+html.dark {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
   background-color: #F8FAFC;
   color: #0F172A;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+html.dark body {
+  background-color: #0F172A;
+  color: #F8FAFC;
+}
+

@@ -4,9 +4,10 @@ import {
   listClaims,
   getClaimById,
   updateClaimStatus,
-  deleteClaim
+  deleteClaim,
+  listMyClaims
 } from '../controllers/claim.controller.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireStaff, requireStudent } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import {
   createClaimSchema,
@@ -17,25 +18,29 @@ import {
 
 const router = express.Router();
 
-// 1. Create Claim Request (Public, Section 6.1)
-router.post('/', validate(createClaimSchema), createClaim);
+// 1. Create Claim Request (Student only, Section 6.1, Gate 8C-D)
+router.post('/', requireStudent, validate(createClaimSchema), createClaim);
 
-// 2. List Claims (Staff only, Section 6.1)
-router.get('/', requireAuth, validate(listClaimsQuerySchema, 'query'), listClaims);
+// 2. List Student's Own Claims (Student only, Gate 8C-D) - Mounted BEFORE /:id
+router.get('/mine', requireStudent, listMyClaims);
 
-// 3. Get Claim Detail (Staff only, Section 6.1)
-router.get('/:id', requireAuth, validate(claimIdParamSchema, 'params'), getClaimById);
+// 3. List Claims (Staff only, Section 6.1, Gate 8C-A)
+router.get('/', requireStaff, validate(listClaimsQuerySchema, 'query'), listClaims);
 
-// 4. Update Claim Status & Workflow (Staff only, Section 6.1)
+// 4. Get Claim Detail (Staff only, Section 6.1, Gate 8C-A)
+router.get('/:id', requireStaff, validate(claimIdParamSchema, 'params'), getClaimById);
+
+// 5. Update Claim Status & Workflow (Staff only, Section 6.1, Gate 8C-A)
 router.put(
   '/:id',
-  requireAuth,
+  requireStaff,
   validate(claimIdParamSchema, 'params'),
   validate(updateClaimStatusSchema),
   updateClaimStatus
 );
 
-// 5. Delete Claim Request (Staff only, Section 6.1)
-router.delete('/:id', requireAuth, validate(claimIdParamSchema, 'params'), deleteClaim);
+// 6. Delete Claim Request (Staff only, Section 6.1, Gate 8C-A)
+router.delete('/:id', requireStaff, validate(claimIdParamSchema, 'params'), deleteClaim);
 
 export default router;
+

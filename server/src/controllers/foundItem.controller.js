@@ -4,7 +4,7 @@ import { PUBLIC_FIELDS } from '../constants.js';
 import { escapeRegex } from '../utils/escapeRegex.js';
 import { parseToMidnightUTC } from '../validators/common.js';
 
-// 1. Create FoundItem Report (Public, POST /api/found-items)
+// 1. Create FoundItem Report (Student only, POST /api/found-items, Gate 8C-D)
 // Privacy Rule (Section 6.5, FND-08): Never returns saved doc. Reloads with .select(PUBLIC_FIELDS.foundItem).
 // Client-supplied status is ignored and forced to 'available'.
 export const createFoundItem = async (req, res, next) => {
@@ -33,7 +33,8 @@ export const createFoundItem = async (req, res, next) => {
       finderName,
       finderEmail,
       finderPhone: finderPhone || '',
-      verificationNotes: verificationNotes || ''
+      verificationNotes: verificationNotes || '',
+      foundBy: req.user.id
     });
 
     // Reload document with ONLY public fields for the response
@@ -48,6 +49,7 @@ export const createFoundItem = async (req, res, next) => {
     return next(error);
   }
 };
+
 
 // 2. List FoundItems (Public+, GET /api/found-items)
 // Anonymous callers receive only PUBLIC_FIELDS; staff callers receive all fields (Section 3.3, FND-03, FND-04)
@@ -235,3 +237,18 @@ export const deleteFoundItem = async (req, res, next) => {
     return next(error);
   }
 };
+
+// 6. List Student's Own FoundItems (Student only, GET /api/found-items/mine, Gate 8C-D)
+export const listMyFoundItems = async (req, res, next) => {
+  try {
+    const items = await FoundItem.find({ foundBy: req.user.id }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      data: items
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+

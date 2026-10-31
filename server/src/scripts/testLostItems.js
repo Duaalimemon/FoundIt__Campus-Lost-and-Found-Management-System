@@ -28,6 +28,12 @@ async function runLostItemTests() {
   const staffToken = jwt.sign({ username: 'admin', role: 'staff' }, env.JWT_SECRET, {
     expiresIn: env.JWT_EXPIRES_IN
   });
+  const studentToken = jwt.sign(
+    { id: new mongoose.Types.ObjectId().toString(), email: 'student@campus.fake', role: 'student' },
+    env.JWT_SECRET,
+    { expiresIn: env.JWT_EXPIRES_IN }
+  );
+
 
   // Ephemeral test HTTP server
   const server = http.createServer(app);
@@ -203,7 +209,7 @@ async function runLostItemTests() {
 
     const resLST01 = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify(validReportData)
     });
     const bodyLST01 = await resLST01.json();
@@ -219,7 +225,7 @@ async function runLostItemTests() {
     // -------------------------------------------------------------
     const resLST02 = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         title: 'AB', // < 3 chars
         category: 'ID Card',
@@ -238,7 +244,7 @@ async function runLostItemTests() {
     // Verify supplied status is ignored when body is valid
     const resLST02Status = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         ...validReportData,
         title: 'Report with Attempted Status Injection',
@@ -254,7 +260,7 @@ async function runLostItemTests() {
     // Create a book report to test filtering
     await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         ...validReportData,
         title: 'Calculus Stewart Textbook',
@@ -377,7 +383,7 @@ async function runLostItemTests() {
     const tomorrowStr = tomorrowDate.toISOString().slice(0, 10);
     const resTomorrow = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         ...validReportData,
         dateLost: tomorrowStr
@@ -388,7 +394,7 @@ async function runLostItemTests() {
     // 2. Today in campus timezone
     const resToday = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         ...validReportData,
         title: 'Today Lost Report',
@@ -400,7 +406,7 @@ async function runLostItemTests() {
     // 3. A date years ago (no lower limit)
     const resOldDate = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         ...validReportData,
         title: 'Old Lost Report',
@@ -412,7 +418,7 @@ async function runLostItemTests() {
     // 4. Impossible calendar date 2026-02-31
     const resImpossible = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         ...validReportData,
         dateLost: '2026-02-31'
@@ -421,12 +427,34 @@ async function runLostItemTests() {
     assert(resImpossible.status === 400, 'LST-08: DR-1 rejects impossible date (2026-02-31) with 400');
 
     // -------------------------------------------------------------
-    // LST-09: Privacy rule verification for POST /api/lost-items
+    // LST-09: Privacy rule & authorization verification for POST /api/lost-items (Gate 8C-D)
     // -------------------------------------------------------------
-    // Create anonymously with contact info
+    // Anonymous call must be rejected with 401 (Gate 8C-D)
     const resPrivAnon = await fetch(baseUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(validReportData)
+    });
+    assert(resPrivAnon.status === 401, 'LST-09: Anonymous create returns 401 (Gate 8C-D)');
+
+    // Staff token must be rejected with 403 (Gate 8C-D)
+    const resPrivStaff = await fetch(baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${staffToken}`
+      },
+      body: JSON.stringify(validReportData)
+    });
+    assert(resPrivStaff.status === 403, 'LST-09: Staff create returns 403 Forbidden (Gate 8C-D)');
+
+    // Authenticated student create with contact info: verify privacy projection
+    const resPrivStudent = await fetch(baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${studentToken}`
+      },
       body: JSON.stringify({
         ...validReportData,
         title: 'Privacy Verification Test Item',
@@ -435,41 +463,21 @@ async function runLostItemTests() {
         reporterPhone: '+92 300 9998877'
       })
     });
-    const rawAnonText = await resPrivAnon.text();
-    const rawAnonJson = JSON.parse(rawAnonText);
-    assert(resPrivAnon.status === 201, 'LST-09: Anonymous create returns 201');
-    assert(!rawAnonText.includes('Confidential Name'), 'LST-09: Raw JSON does not leak reporterName');
-    assert(!rawAnonText.includes('confidential@campus.fake'), 'LST-09: Raw JSON does not leak reporterEmail');
-    assert(!rawAnonText.includes('+92 300 9998877'), 'LST-09: Raw JSON does not leak reporterPhone');
-    assert(rawAnonJson.data?.__v === undefined, 'LST-09: Raw JSON excludes __v');
-    assert(rawAnonJson.data?.updatedAt === undefined, 'LST-09: Raw JSON excludes updatedAt');
-    assert(rawAnonJson.message === 'Report submitted. Staff can contact you using the details you gave.', 'LST-09: Includes exact confirmation message');
+    const rawStudentText = await resPrivStudent.text();
+    const rawStudentJson = JSON.parse(rawStudentText);
+    assert(resPrivStudent.status === 201, 'LST-09: Student create returns 201');
+    assert(!rawStudentText.includes('Confidential Name'), 'LST-09: Raw JSON does not leak reporterName');
+    assert(!rawStudentText.includes('confidential@campus.fake'), 'LST-09: Raw JSON does not leak reporterEmail');
+    assert(!rawStudentText.includes('+92 300 9998877'), 'LST-09: Raw JSON does not leak reporterPhone');
+    assert(rawStudentJson.data?.__v === undefined, 'LST-09: Raw JSON excludes __v');
+    assert(rawStudentJson.data?.updatedAt === undefined, 'LST-09: Raw JSON excludes updatedAt');
+    assert(rawStudentJson.message === 'Report submitted. Staff can contact you using the details you gave.', 'LST-09: Includes exact confirmation message');
 
-    // Repeat with valid staff token: response must be IDENTICAL
-    const resPrivStaff = await fetch(baseUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${staffToken}`
-      },
-      body: JSON.stringify({
-        ...validReportData,
-        title: 'Staff Created Item',
-        reporterName: 'Staff Caller Name',
-        reporterEmail: 'staffcaller@campus.fake',
-        reporterPhone: '+92 311 0001122'
-      })
-    });
-    const rawStaffText = await resPrivStaff.text();
-    const rawStaffJson = JSON.parse(rawStaffText);
-    assert(resPrivStaff.status === 201, 'LST-09: Staff create returns 201');
-    assert(!rawStaffText.includes('Staff Caller Name'), 'LST-09: Staff create response strictly hides reporterName');
-    assert(!rawStaffText.includes('staffcaller@campus.fake'), 'LST-09: Staff create response strictly hides reporterEmail');
 
     // Validation error must not echo back submitted contact values
     const resPrivValError = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         title: 'AB',
         reporterEmail: 'secret_user@campus.fake'
@@ -500,7 +508,7 @@ async function runLostItemTests() {
     // NoSQL object payload
     const resNoSql = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         title: { $gt: '' },
         category: 'ID Card'

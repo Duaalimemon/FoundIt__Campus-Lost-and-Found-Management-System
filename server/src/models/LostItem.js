@@ -76,6 +76,11 @@ const lostItemSchema = new mongoose.Schema(
         },
         message: 'Reporter phone number format is invalid'
       }
+    },
+    reportedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: undefined
     }
   },
   {
@@ -86,5 +91,7 @@ const lostItemSchema = new mongoose.Schema(
 
 // Indexes per Section 5.9: default ordering and list filters
 lostItemSchema.index({ createdAt: -1, category: 1, status: 1 });
+lostItemSchema.index({ reportedBy: 1 });
 
 export const LostItem = mongoose.model('LostItem', lostItemSchema);
+

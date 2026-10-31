@@ -42,7 +42,7 @@ export const createClaim = async (req, res, next) => {
       });
     }
 
-    // Create new claim with system-default status 'pending'
+    // Create new claim with system-default status 'pending' and authenticated student ownership (Gate 8C-D)
     const newClaim = await ClaimRequest.create({
       foundItem,
       claimantName,
@@ -50,7 +50,8 @@ export const createClaim = async (req, res, next) => {
       claimantPhone: claimantPhone || '',
       proofDescription,
       status: 'pending',
-      adminNote: ''
+      adminNote: '',
+      claimedBy: req.user.id
     });
 
     return res.status(201).json({
@@ -58,6 +59,7 @@ export const createClaim = async (req, res, next) => {
       message: 'Claim submitted successfully. Staff will review your proof.',
       data: {
         _id: newClaim._id,
+
         foundItem: newClaim.foundItem,
         claimantName: newClaim.claimantName,
         claimantEmail: newClaim.claimantEmail,
@@ -388,3 +390,20 @@ export const deleteClaim = async (req, res, next) => {
     return next(error);
   }
 };
+
+// 6. List Student's Own Claims (Student only, GET /api/claims/mine, Gate 8C-D)
+export const listMyClaims = async (req, res, next) => {
+  try {
+    const claims = await ClaimRequest.find({ claimedBy: req.user.id })
+      .populate('foundItem', 'title category foundLocation dateFound status')
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      data: claims
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+

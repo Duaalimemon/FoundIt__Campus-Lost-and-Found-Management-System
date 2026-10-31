@@ -3,13 +3,13 @@ import { PUBLIC_FIELDS } from '../constants.js';
 import { escapeRegex } from '../utils/escapeRegex.js';
 import { parseToMidnightUTC } from '../validators/common.js';
 
-// 1. Create LostItem Report (Public, POST /api/lost-items)
+// 1. Create LostItem Report (Student only, POST /api/lost-items, Gate 8C-D)
 // Privacy Rule (Section 6.5, LST-09): Never returns saved doc. Reloads with .select(PUBLIC_FIELDS).
 export const createLostItem = async (req, res, next) => {
   try {
     const { title, category, description, lastSeenLocation, dateLost, reporterName, reporterEmail, reporterPhone } = req.body;
 
-    // Create report with default status 'open' (client-supplied status ignored per LST-02)
+    // Create report with default status 'open' and authenticated student ownership (Gate 8C-D)
     const newReport = await LostItem.create({
       title,
       category,
@@ -19,7 +19,8 @@ export const createLostItem = async (req, res, next) => {
       status: 'open',
       reporterName,
       reporterEmail,
-      reporterPhone: reporterPhone || ''
+      reporterPhone: reporterPhone || '',
+      reportedBy: req.user.id
     });
 
     // Reload document with ONLY public fields for the response
@@ -34,6 +35,7 @@ export const createLostItem = async (req, res, next) => {
     return next(error);
   }
 };
+
 
 // 2. List LostItems (Public+, GET /api/lost-items)
 // Anonymous callers receive only PUBLIC_FIELDS; staff callers receive all fields (Section 3.3, LST-03, LST-04)
@@ -189,3 +191,18 @@ export const deleteLostItem = async (req, res, next) => {
     return next(error);
   }
 };
+
+// 6. List Student's Own LostItems (Student only, GET /api/lost-items/mine, Gate 8C-D)
+export const listMyLostItems = async (req, res, next) => {
+  try {
+    const items = await LostItem.find({ reportedBy: req.user.id }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      data: items
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+

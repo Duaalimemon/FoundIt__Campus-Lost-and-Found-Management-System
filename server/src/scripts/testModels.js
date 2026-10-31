@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { LostItem } from '../models/LostItem.js';
 import { FoundItem } from '../models/FoundItem.js';
 import { ClaimRequest } from '../models/ClaimRequest.js';
+import { User } from '../models/User.js';
 
 async function runModelValidationTests() {
   console.log('--- RUNNING MONGOOSE MODEL VALIDATION TESTS (OFFLINE) ---');
@@ -159,10 +160,106 @@ async function runModelValidationTests() {
     assert(false, `Rejected with note check threw: ${e.message}`);
   }
 
+  // 4. User model validation checks (Gate 8C-B)
+  try {
+    const validStudent = new User({
+      name: 'Alice Student',
+      email: '  Alice.Student@Campus.Edu  ',
+      password: 'StrongPassword123!'
+    });
+    const err = validStudent.validateSync();
+    assert(!err, 'Valid User passes schema validation');
+    assert(validStudent.email === 'alice.student@campus.edu', 'User email is trimmed and normalized to lowercase');
+    assert(validStudent.role === 'student', 'User role defaults to "student"');
+    assert(validStudent.authProvider === 'local', 'User authProvider defaults to "local"');
+  } catch (e) {
+    assert(false, `Valid User check threw: ${e.message}`);
+  }
+
+  try {
+    const invalidUser = new User({
+      name: 'A', // < 2 chars
+      email: 'not-an-email',
+      role: 'staff', // unauthorized role enum
+      authProvider: 'unknown_provider', // invalid provider enum
+      password: 'short' // < 8 chars
+    });
+    const err = invalidUser.validateSync();
+    assert(err && err.errors['name'], 'User rejects name < 2 chars');
+    assert(err && err.errors['email'], 'User rejects invalid email format');
+    assert(err && err.errors['role'], 'User rejects unauthorized role "staff"');
+    assert(err && err.errors['authProvider'], 'User rejects invalid authProvider');
+    assert(err && err.errors['password'], 'User rejects password < 8 chars');
+  } catch (e) {
+    assert(false, `Invalid User check threw: ${e.message}`);
+  }
+
+  try {
+    const validGoogleUser = new User({
+      name: 'Google Student',
+      email: 'google.student@campus.edu',
+      authProvider: 'google',
+      googleId: '109876543210987654321'
+    });
+    const err = validGoogleUser.validateSync();
+    assert(!err, 'Google OAuth student passes validation without password');
+    assert(validGoogleUser.authProvider === 'google', 'User authProvider is "google"');
+    assert(validGoogleUser.googleId === '109876543210987654321', 'User googleId is stored correctly');
+  } catch (e) {
+    assert(false, `Google User check threw: ${e.message}`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // GATE 8C-D: Ownership model references & legacy compatibility
+  // ---------------------------------------------------------------------------
+
+  try {
+    const dummyUserId = new mongoose.Types.ObjectId();
+    const lostWithUser = new LostItem({
+      title: 'Valid Lost With User',
+      category: 'Electronics',
+      description: 'Lost item description here with >= 10 chars',
+      lastSeenLocation: 'Library',
+      dateLost: new Date(),
+      reporterName: 'Student Owner',
+      reporterEmail: 'student@campus.edu',
+      reportedBy: dummyUserId
+    });
+    assert(!lostWithUser.validateSync(), 'LostItem accepts valid reportedBy user reference');
+    assert(lostWithUser.reportedBy.equals(dummyUserId), 'LostItem reportedBy matches supplied ObjectId');
+
+    const foundWithUser = new FoundItem({
+      title: 'Valid Found With User',
+      category: 'Electronics',
+      description: 'Found item description here with >= 10 chars',
+      foundLocation: 'Lab 1',
+      dateFound: new Date(),
+      storageLocation: 'Locker 1',
+      finderName: 'Student Finder',
+      finderEmail: 'finder@campus.edu',
+      foundBy: dummyUserId
+    });
+    assert(!foundWithUser.validateSync(), 'FoundItem accepts valid foundBy user reference');
+    assert(foundWithUser.foundBy.equals(dummyUserId), 'FoundItem foundBy matches supplied ObjectId');
+
+    const claimWithUser = new ClaimRequest({
+      foundItem: new mongoose.Types.ObjectId(),
+      claimantName: 'Student Claimant',
+      claimantEmail: 'claimant@campus.edu',
+      proofDescription: 'Proof description here with >= 20 characters',
+      claimedBy: dummyUserId
+    });
+    assert(!claimWithUser.validateSync(), 'ClaimRequest accepts valid claimedBy user reference');
+    assert(claimWithUser.claimedBy.equals(dummyUserId), 'ClaimRequest claimedBy matches supplied ObjectId');
+  } catch (e) {
+    assert(false, `Ownership references check threw: ${e.message}`);
+  }
+
   console.log(`\nModel Validation Results: ${passed} PASSED, ${failed} FAILED`);
   if (failed > 0) {
     process.exit(1);
   }
 }
+
 
 runModelValidationTests();

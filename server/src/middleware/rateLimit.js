@@ -14,3 +14,18 @@ export const loginLimiter = rateLimit({
     });
   }
 });
+
+// Password reset rate limiter
+// Allows up to 5 attempts per 15 minutes per IP to prevent spam and enumeration attacks
+export const passwordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      message: 'Too many password reset requests. Please try again after 15 minutes.'
+    });
+  }
+});

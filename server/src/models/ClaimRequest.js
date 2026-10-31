@@ -71,6 +71,11 @@ const claimRequestSchema = new mongoose.Schema(
         },
         message: 'An admin note of at least 5 characters is required when rejecting a claim'
       }
+    },
+    claimedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: undefined
     }
   },
   {
@@ -82,5 +87,7 @@ const claimRequestSchema = new mongoose.Schema(
 // Indexes per Section 5.9
 claimRequestSchema.index({ foundItem: 1, status: 1 });
 claimRequestSchema.index({ foundItem: 1, claimantEmail: 1 });
+claimRequestSchema.index({ claimedBy: 1 });
 
 export const ClaimRequest = mongoose.model('ClaimRequest', claimRequestSchema);
+

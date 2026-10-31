@@ -31,6 +31,12 @@ async function runClaimTests() {
   const staffToken = jwt.sign({ username: 'admin', role: 'staff' }, env.JWT_SECRET, {
     expiresIn: env.JWT_EXPIRES_IN
   });
+  const studentToken = jwt.sign(
+    { id: new mongoose.Types.ObjectId().toString(), email: 'student@campus.fake', role: 'student' },
+    env.JWT_SECRET,
+    { expiresIn: env.JWT_EXPIRES_IN }
+  );
+
 
   // Ephemeral test HTTP server
   const server = http.createServer(app);
@@ -260,7 +266,7 @@ async function runClaimTests() {
 
     const resCLM01 = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify(validClaimData)
     });
     const bodyCLM01 = await resCLM01.json();
@@ -274,7 +280,7 @@ async function runClaimTests() {
     // Verify supplied status is ignored
     const resCLM01Status = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         ...validClaimData,
         claimantEmail: 'another.student@campus.fake',
@@ -291,7 +297,7 @@ async function runClaimTests() {
     // Bad body (short name, short proof, bad email)
     const resBadBody = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         foundItem: foundItemId,
         claimantName: 'D', // < 2 chars
@@ -307,7 +313,7 @@ async function runClaimTests() {
     const randomId = new mongoose.Types.ObjectId().toString();
     const resNonExistentItem = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         ...validClaimData,
         foundItem: randomId,
@@ -322,7 +328,7 @@ async function runClaimTests() {
     // David already has a pending claim on foundItemId
     const resDuplicateClaim = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify(validClaimData)
     });
     const bodyDuplicateClaim = await resDuplicateClaim.json();
@@ -409,7 +415,7 @@ async function runClaimTests() {
     // After rejection, the claimant can re-submit a new claim (CLM-03 verification)
     const resResubmitAfterReject = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         foundItem: foundItemId,
         claimantName: 'Another Student',
@@ -418,6 +424,7 @@ async function runClaimTests() {
         proofDescription: 'Here is revised proof with photo of receipt and matching warranty card.'
       })
     });
+
     assert(resResubmitAfterReject.status === 201, 'CLM-03: Claimant with previously rejected claim can submit a new claim');
     const claim3Id = (await resResubmitAfterReject.json()).data?._id;
 

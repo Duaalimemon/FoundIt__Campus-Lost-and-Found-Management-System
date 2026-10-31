@@ -29,6 +29,12 @@ async function runFoundItemTests() {
   const staffToken = jwt.sign({ username: 'admin', role: 'staff' }, env.JWT_SECRET, {
     expiresIn: env.JWT_EXPIRES_IN
   });
+  const studentToken = jwt.sign(
+    { id: new mongoose.Types.ObjectId().toString(), email: 'student@campus.fake', role: 'student' },
+    env.JWT_SECRET,
+    { expiresIn: env.JWT_EXPIRES_IN }
+  );
+
 
   // Ephemeral test HTTP server
   const server = http.createServer(app);
@@ -222,7 +228,7 @@ async function runFoundItemTests() {
 
     const resFND01 = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify(validReportData)
     });
     const bodyFND01 = await resFND01.json();
@@ -238,7 +244,7 @@ async function runFoundItemTests() {
     // -------------------------------------------------------------
     const resFND02 = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         title: 'AB', // < 3 chars
         category: 'Electronics',
@@ -257,7 +263,7 @@ async function runFoundItemTests() {
     // Client-supplied status ignored on create
     const resFND02Status = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         ...validReportData,
         title: 'Report with Injected Status',
@@ -273,7 +279,7 @@ async function runFoundItemTests() {
     // Create an extra item for testing category and search
     await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         ...validReportData,
         title: 'Found Engineering Drawing Kit',
@@ -475,7 +481,7 @@ async function runFoundItemTests() {
     const tomorrowStr = tomorrowDate.toISOString().slice(0, 10);
     const resTomorrow = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         ...validReportData,
         dateFound: tomorrowStr
@@ -486,7 +492,7 @@ async function runFoundItemTests() {
     // 2. DR-1: Today accepted
     const resToday = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         ...validReportData,
         title: 'Today Found Report',
@@ -498,7 +504,7 @@ async function runFoundItemTests() {
     // 3. DR-1: Past date accepted
     const resOldDate = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         ...validReportData,
         title: 'Historical Found Report',
@@ -510,7 +516,7 @@ async function runFoundItemTests() {
     // 4. DR-1: Impossible calendar date rejected
     const resImpossible = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         ...validReportData,
         dateFound: '2026-02-31'
@@ -518,10 +524,33 @@ async function runFoundItemTests() {
     });
     assert(resImpossible.status === 400, 'FND-08: DR-1 rejects impossible date (2026-02-31) with 400');
 
-    // 5. Section 6.5: Public create privacy projection
+    // 5. Section 6.5 & Gate 8C-D: Public create privacy projection & auth guards
+    // Anonymous call must return 401 (Gate 8C-D)
     const resPrivAnon = await fetch(baseUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(validReportData)
+    });
+    assert(resPrivAnon.status === 401, 'FND-08: Anonymous create returns 401 (Gate 8C-D)');
+
+    // Staff call must return 403 (Gate 8C-D)
+    const resPrivStaff = await fetch(baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${staffToken}`
+      },
+      body: JSON.stringify(validReportData)
+    });
+    assert(resPrivStaff.status === 403, 'FND-08: Staff create returns 403 Forbidden (Gate 8C-D)');
+
+    // Authenticated student create: verify privacy projection
+    const resPrivStudent = await fetch(baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${studentToken}`
+      },
       body: JSON.stringify({
         ...validReportData,
         title: 'Privacy Verification Test Item',
@@ -532,41 +561,21 @@ async function runFoundItemTests() {
         verificationNotes: 'Super secret notes'
       })
     });
-    const rawAnonText = await resPrivAnon.text();
-    const rawAnonJson = JSON.parse(rawAnonText);
-    assert(resPrivAnon.status === 201, 'FND-08: Anonymous create returns 201');
-    assert(!rawAnonText.includes('Confidential Person Alpha'), 'FND-08: Response strictly excludes finderName');
-    assert(!rawAnonText.includes('secretfinder@campus.fake'), 'FND-08: Response strictly excludes finderEmail');
-    assert(!rawAnonText.includes('+92 333 1122334'), 'FND-08: Response strictly excludes finderPhone');
-    assert(!rawAnonText.includes('Vault 99 Shelf Z'), 'FND-08: Response strictly excludes storageLocation');
-    assert(!rawAnonText.includes('Super secret notes'), 'FND-08: Response strictly excludes verificationNotes');
-    assert(rawAnonJson.data?.__v === undefined, 'FND-08: Response excludes __v');
-    assert(rawAnonJson.data?.updatedAt === undefined, 'FND-08: Response excludes updatedAt');
-
-    // 6. Section 6.5: Staff create response is IDENTICALLY scrubbed
-    const resPrivStaff = await fetch(baseUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${staffToken}`
-      },
-      body: JSON.stringify({
-        ...validReportData,
-        title: 'Staff Reported Item',
-        storageLocation: 'Back Office Safe A',
-        finderName: 'Staff Person Name',
-        finderEmail: 'staffmember@campus.fake'
-      })
-    });
-    const rawStaffText = await resPrivStaff.text();
-    assert(resPrivStaff.status === 201, 'FND-08: Staff create returns 201');
-    assert(!rawStaffText.includes('Staff Person Name'), 'FND-08: Staff create strictly excludes finderName');
-    assert(!rawStaffText.includes('Back Office Safe A'), 'FND-08: Staff create strictly excludes storageLocation');
+    const rawStudentText = await resPrivStudent.text();
+    const rawStudentJson = JSON.parse(rawStudentText);
+    assert(resPrivStudent.status === 201, 'FND-08: Student create returns 201');
+    assert(!rawStudentText.includes('Confidential Person Alpha'), 'FND-08: Response strictly excludes finderName');
+    assert(!rawStudentText.includes('secretfinder@campus.fake'), 'FND-08: Response strictly excludes finderEmail');
+    assert(!rawStudentText.includes('+92 333 1122334'), 'FND-08: Response strictly excludes finderPhone');
+    assert(!rawStudentText.includes('Vault 99 Shelf Z'), 'FND-08: Response strictly excludes storageLocation');
+    assert(!rawStudentText.includes('Super secret notes'), 'FND-08: Response strictly excludes verificationNotes');
+    assert(rawStudentJson.data?.__v === undefined, 'FND-08: Response excludes __v');
+    assert(rawStudentJson.data?.updatedAt === undefined, 'FND-08: Response excludes updatedAt');
 
     // 7. Validation error does not echo submitted contact details
     const resValErr = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         title: 'AB',
         finderEmail: 'secret_user@campus.fake'
@@ -596,7 +605,7 @@ async function runFoundItemTests() {
     // -------------------------------------------------------------
     const resNoSql = await fetch(baseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         title: { $gt: '' },
         category: 'Electronics'

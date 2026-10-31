@@ -88,6 +88,11 @@ const foundItemSchema = new mongoose.Schema(
       trim: true,
       default: '',
       maxlength: [500, 'Verification notes cannot exceed 500 characters']
+    },
+    foundBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: undefined
     }
   },
   {
@@ -98,5 +103,7 @@ const foundItemSchema = new mongoose.Schema(
 
 // Indexes per Section 5.9: default ordering and list filters
 foundItemSchema.index({ createdAt: -1, category: 1, status: 1 });
+foundItemSchema.index({ foundBy: 1 });
 
 export const FoundItem = mongoose.model('FoundItem', foundItemSchema);
+
