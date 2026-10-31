@@ -63,27 +63,44 @@ const buildConnectionUri = (originalUri) => {
   );
 };
 
+// Connection promise cache for serverless invocation reuse
+let cachedConnectionPromise = null;
+
 export const connectDB = async () => {
+  // 1. If an established connection is already open, reuse it immediately
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
+  }
+
+  // 2. If a connection attempt is in-flight, await the existing promise
+  if (cachedConnectionPromise) {
+    return cachedConnectionPromise;
+  }
+
   const connectionUri = buildConnectionUri(env.MONGODB_URI);
 
-  try {
-    const conn = await mongoose.connect(connectionUri);
+  // 3. Initiate and cache connection attempt to prevent race conditions
+  cachedConnectionPromise = mongoose
+    .connect(connectionUri)
+    .then((conn) => {
+      console.log(
+        `[FoundIt DB] MongoDB connected: ${conn.connection.host} / Database: ${conn.connection.name}`
+      );
+      return conn;
+    })
+    .catch((error) => {
+      cachedConnectionPromise = null;
+      console.error(
+        `[FoundIt DB] MongoDB connection failed: ${error.message}`
+      );
+      throw error;
+    });
 
-    console.log(
-      `[FoundIt DB] MongoDB connected: ${conn.connection.host} / Database: ${conn.connection.name}`
-    );
-
-    return conn;
-  } catch (error) {
-    console.error(
-      `[FoundIt DB] MongoDB connection failed: ${error.message}`
-    );
-
-    throw error;
-  }
+  return cachedConnectionPromise;
 };
 
 export const disconnectDB = async () => {
+  cachedConnectionPromise = null;
   try {
     await mongoose.disconnect();
     console.log('[FoundIt DB] MongoDB disconnected.');
@@ -95,6 +112,7 @@ export const disconnectDB = async () => {
 };
 
 mongoose.connection.on('disconnected', () => {
+  cachedConnectionPromise = null;
   console.warn('[FoundIt DB] MongoDB connection lost.');
 });
 
