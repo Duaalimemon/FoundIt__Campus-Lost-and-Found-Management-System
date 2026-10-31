@@ -29,6 +29,7 @@ export const Button = forwardRef(function Button(
     size = 'md',
     disabled = false,
     loading = false,
+    isLoading = false,
     fullWidth = false,
     className = '',
     onClick,
@@ -36,10 +37,11 @@ export const Button = forwardRef(function Button(
   },
   ref
 ) {
+  const isBusy = Boolean(loading || isLoading);
   const variantStyles = VARIANTS[variant] || VARIANTS.primary;
   const sizeStyles = SIZES[size] || SIZES.md;
   const widthStyles = fullWidth ? 'w-full' : '';
-  const isDisabled = disabled || loading;
+  const isDisabled = Boolean(disabled || isBusy);
 
   const handleClick = (e) => {
     if (isDisabled) {
@@ -56,13 +58,13 @@ export const Button = forwardRef(function Button(
       ref={ref}
       type={type}
       disabled={isDisabled}
-      aria-busy={loading ? 'true' : undefined}
+      aria-busy={isBusy ? 'true' : undefined}
       aria-disabled={isDisabled ? 'true' : undefined}
       onClick={handleClick}
       className={`inline-flex items-center justify-center font-medium rounded-lg transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${variantStyles} ${sizeStyles} ${widthStyles} ${className}`.trim()}
       {...props}
     >
-      {loading && (
+      {isBusy && (
         <svg
           className="animate-spin -ml-1 mr-2 h-4 w-4 text-current motion-reduce:animate-none"
           xmlns="http://www.w3.org/2000/svg"

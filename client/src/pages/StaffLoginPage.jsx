@@ -28,6 +28,8 @@ export default function StaffLoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
+
     setError(null);
     setLoading(true);
 
@@ -35,7 +37,15 @@ export default function StaffLoginPage() {
       await login(username, password);
       navigate(redirectDestination, { replace: true });
     } catch (err) {
-      setError(err.message || 'Authentication failed. Please verify staff username and password.');
+      if (err.isTimeout) {
+        setError('Login request timed out. The server took longer than expected to respond (e.g. serverless cold start). Please try again in a moment.');
+      } else if (err.retryAfter) {
+        const minutes = Math.ceil(err.retryAfter / 60);
+        const waitText = minutes > 1 ? `${minutes} minutes` : '1 minute';
+        setError(`Too many login attempts. Please wait ${waitText} before trying again.`);
+      } else {
+        setError(err.message || 'Authentication failed. Please verify staff username and password.');
+      }
     } finally {
       setLoading(false);
     }
@@ -78,6 +88,7 @@ export default function StaffLoginPage() {
             placeholder="e.g. admin"
             required
             autoFocus
+            disabled={loading}
           />
 
           <Input
@@ -89,13 +100,15 @@ export default function StaffLoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••••••"
             required
+            disabled={loading}
           />
 
           <Button
             variant="primary"
             type="submit"
             fullWidth
-            isLoading={loading}
+            loading={loading}
+            disabled={loading}
           >
             Sign In to Staff Portal
           </Button>

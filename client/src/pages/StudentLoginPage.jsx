@@ -51,13 +51,22 @@ export default function StudentLoginPage() {
       await studentLogin({ email: trimmedEmail, password });
       navigate(redirectDestination, { replace: true });
     } catch (err) {
-      setError(err.message || 'Authentication failed. Please verify your email and password.');
+      if (err.isTimeout) {
+        setError('Login request timed out. The server took longer than expected to respond (e.g. serverless cold start). Please try again in a moment.');
+      } else if (err.retryAfter) {
+        const minutes = Math.ceil(err.retryAfter / 60);
+        const waitText = minutes > 1 ? `${minutes} minutes` : '1 minute';
+        setError(`Too many login attempts. Please wait ${waitText} before trying again.`);
+      } else {
+        setError(err.message || 'Authentication failed. Please verify your email and password.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleSuccess = async (credentialResponse) => {
+    if (loading) return;
     if (!credentialResponse?.credential) {
       setError('Google Sign-In did not return a valid credential. Please try again.');
       return;
@@ -190,6 +199,7 @@ export default function StudentLoginPage() {
             type="submit"
             fullWidth
             loading={loading}
+            disabled={loading}
           >
             Sign In
           </Button>

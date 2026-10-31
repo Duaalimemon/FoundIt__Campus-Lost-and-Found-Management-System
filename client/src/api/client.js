@@ -1,13 +1,16 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) || 'http://localhost:5000/api';
+
+export const DEFAULT_TIMEOUT = 10000; // 10s for general data queries
+export const AUTH_TIMEOUT = 30000;    // 30s for authentication & cold-start requests
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json'
   },
-  timeout: 10000
+  timeout: DEFAULT_TIMEOUT
 });
 
 export const STAFF_TOKEN_KEY = 'foundit_staff_token';
@@ -53,6 +56,13 @@ apiClient.interceptors.request.use(
     // 2. Route & method heuristic
     const url = config.url || '';
     const method = (config.method || 'get').toLowerCase();
+
+    // Authentication endpoints receive 30s timeout to withstand serverless cold starts
+    if (url.includes('/auth/')) {
+      if (!config.timeout || config.timeout === DEFAULT_TIMEOUT) {
+        config.timeout = AUTH_TIMEOUT;
+      }
+    }
 
     // Student endpoints: /auth/student/*, /auth/me, /mine routes, or student creation POSTs
     const isStudentEndpoint =
@@ -124,11 +134,29 @@ apiClient.interceptors.response.use(
           }
         }
       }
-      return Promise.reject(error.response.data || {
+      const data = error.response.data || {};
+      return Promise.reject({
         success: false,
-        message: error.response.statusText || 'Request failed'
+        status: error.response.status,
+        message: data.message || error.response.statusText || 'Request failed',
+        retryAfter: data.retryAfter,
+        ...data
       });
     }
+
+    const isTimeout =
+      error.code === 'ECONNABORTED' ||
+      (typeof error.message === 'string' && error.message.toLowerCase().includes('timeout'));
+
+    if (isTimeout) {
+      return Promise.reject({
+        success: false,
+        isTimeout: true,
+        status: 408,
+        message: 'Request timed out. The server took too long to respond. Please check your connection and try again.'
+      });
+    }
+
     return Promise.reject({
       success: false,
       message: error.message || 'Network error occurred. Please check your connection.'

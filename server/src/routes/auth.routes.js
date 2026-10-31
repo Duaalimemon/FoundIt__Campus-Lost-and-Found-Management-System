@@ -8,7 +8,7 @@ import {
   forgotPasswordStudent,
   resetPasswordStudent
 } from '../controllers/auth.controller.js';
-import { loginLimiter, passwordResetLimiter } from '../middleware/rateLimit.js';
+import { loginLimiter, studentLoginLimiter, passwordResetLimiter } from '../middleware/rateLimit.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth, requireStaff, optionalAuth } from '../middleware/auth.js';
 import {
@@ -26,13 +26,13 @@ const router = express.Router();
 router.post('/login', loginLimiter, validate(loginSchema), login);
 
 // POST /api/auth/student/register (Gate 8C-C Endpoint #1 - Student Registration)
-router.post('/student/register', loginLimiter, validate(studentRegisterSchema), registerStudent);
+router.post('/student/register', studentLoginLimiter, validate(studentRegisterSchema), registerStudent);
 
 // POST /api/auth/student/login (Gate 8C-C Endpoint #2 - Student Login)
-router.post('/student/login', loginLimiter, validate(studentLoginSchema), loginStudent);
+router.post('/student/login', studentLoginLimiter, validate(studentLoginSchema), loginStudent);
 
 // POST /api/auth/student/google (Student Google Sign-In, Phase 1)
-router.post('/student/google', loginLimiter, validate(googleAuthSchema), googleAuthStudent);
+router.post('/student/google', studentLoginLimiter, validate(googleAuthSchema), googleAuthStudent);
 
 // POST /api/auth/student/forgot-password (Forgot Password Request)
 router.post('/student/forgot-password', passwordResetLimiter, validate(forgotPasswordSchema), forgotPasswordStudent);
